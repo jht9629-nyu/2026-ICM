@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mic Volume Meter</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 420px; margin: 40px auto; padding: 0 16px; }
+  button { padding: 8px 16px; font-size: 1rem; cursor: pointer; }
+  #meter { height: 24px; background: #e5e5e5; border-radius: 6px; overflow: hidden; margin: 16px 0 8px; }
+  #bar { height: 100%; width: 0%; background: #22c55e; transition: width 50ms linear; }
+  #status { color: #555; font-size: 0.9rem; min-height: 1.2em; }
+</style>
+</head>
+<body>
+  <h1>Mic Volume Meter</h1>
+  <button id="toggle">Start microphone</button>
+  <div id="meter" role="meter" aria-label="Microphone volume" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+    <div id="bar"></div>
+  </div>
+  <div id="level">— dB</div>
+  <p id="status"></p>
+
+<script>
+(() => {
+  const btn = document.getElementById('toggle');
+  const bar = document.getElementById('bar');
+  const meter = document.getElementById('meter');
+  const levelEl = document.getElementById('level');
+  const statusEl = document.getElementById('status');
+
+  let stream = null;
+  let audioCtx = null;
+  let rafId = null;
+
+  const setStatus = (msg) => { statusEl.textContent = msg; };
+
+  // 1. Feature + secure-context checks (getUserMedia only works on HTTPS or localhost)
+  function checkSupport() {
+    if (!window.isSecureContext) {
+      return 'Microphone access requires HTTPS (or localhost).';
+    }
+    if (!navigator.mediaDevices?.getUserMedia) {
+      return 'This browser does not support microphone access.';
+    }
+    if (!(window.AudioContext || window.webkitAudioContext)) {
+      return 'This browser does not support the Web Audio API.';
+    }
+    return null;
+  }
+
+  // 2. Start: only called from a user click (browsers require a gesture for audio)
+  async function start() {
+    const problem = checkSupport();
+    if (problem) { setStatus(problem); return; }
+
+    btn.disabled = true;
+    setStatus('Requesting microphone permission…');
+
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: false },
+        video: false
+      });
+    } catch (err) {
+      btn.disabled = false;
+      setStatus(friendlyError(err));
+      return;
+    }
+
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    audioCtx = new Ctx();
+    if (audioCtx.state === 'suspended') await audioCtx.resume();
+
+    const source = audioCtx.createMediaStreamSource(stream);
+    const analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 1024;
+    analyser.smoothingTimeConstant = 0.3;
+    source.connect(analyser); // NOT connected to destination → no feedback/echo
+
+    // Stop cleanly if the mic is unplugged or permission is revoked
+    stream.getAudioTracks()[0].addEventListener('ended', () => {
+      stop();
+      setStatus('Microphone disconnected.');
+    });
+
+    const data = new Float32Array(analyser.fftSize);
+    let smoothed = 0;
+
+    const draw = () => {
+      analyser.getFloatTimeDomainData(data);
+
+      // RMS of the waveform
+      let sum = 0;
+      for (let i = 0; i < data.length; i++) sum += data[i] * data[i];
+      const rms = Math.sqrt(sum / data.length);
+
+      // Convert to dBFS, clamp to a usable range (-60 dB … 0 dB)
+      const db = rms > 0 ? 20 * Math.log10(rms) : -Infinity;
+      const pct = Math.max(0, Math.min(100, ((db + 60) / 60) * 100));
+
+      // Fast attack, slow release so the meter doesn't flicker
+      smoothed = pct > smoothed ? pct : smoothed * 0.9 + pct * 0.1;
+
+      bar.style.width = smoothed.toFixed(1) + '%';
+      bar.style.background = smoothed > 85 ? '#ef4444' : smoothed > 65 ? '#eab308' : '#22c55e';
+      meter.setAttribute('aria-valuenow', Math.round(smoothed));
+      levelEl.textContent = isFinite(db) ? db.toFixed(1) + ' dB' : '-∞ dB';
+
+      rafId = requestAnimationFrame(draw);
+    };
+    draw();
+
+    btn.textContent = 'Stop microphone';
+    btn.disabled = false;
+    setStatus('Listening. Audio stays in your browser — nothing is recorded or sent.');
+  }
+
+  // 3. Stop: release the mic (turns off the browser's recording indicator)
+  function stop() {
+    if (rafId) cancelAnimationFrame(rafId);
+    rafId = null;
+    stream?.getTracks().forEach(t => t.stop());
+    stream = null;
+    audioCtx?.close();
+    audioCtx = null;
+
+    bar.style.width = '0%';
+    meter.setAttribute('aria-valuenow', '0');
+    levelEl.textContent = '— dB';
+    btn.textContent = 'Start microphone';
+    setStatus('Microphone stopped.');
+  }
+
+  function friendlyError(err) {
+    switch (err?.name) {
+      case 'NotAllowedError':
+      case 'SecurityError':
+        return 'Permission denied. Allow microphone access in your browser settings and try again.';
+      case 'NotFoundError':
+        return 'No microphone found.';
+      case 'NotReadableError':
+        return 'The microphone is in use by another app or could not be opened.';
+      case 'OverconstrainedError':
+        return 'The microphone does not support the requested settings.';
+      default:
+        return 'Could not access the microphone: ' + (err?.message || err);
+    }
+  }
+
+  btn.addEventListener('click', () => (stream ? stop() : start()));
+
+  // Release the mic when the page is closed or hidden for good
+  window.addEventListener('pagehide', stop);
+})();
+</script>
+</body>
+</html>
