@@ -1,0 +1,4 @@
+2026-11-23 09:04:52
+
+https://claude.ai/chat/e1745f09-523f-454a-96ba-0bfba76a7cdc
+javascript code to safely access mic and show volume level
