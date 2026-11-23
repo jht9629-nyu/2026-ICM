@@ -11,8 +11,10 @@ function setup() {
 }
 
 function mousePressed() {
+  console.log('mousePressed entered');
   if (!micStarted) {
     mic.start(function () {
+      console.log('mic.start');
       micStarted = true;
     });
   }
@@ -22,13 +24,13 @@ function draw() {
   background(255);
 
   let volume;
-  
+
   if (micStarted) {
     volume = mic.getLevel(0.12);
   } else {
     volume = 0;
   }
-  console.log(volume);
+  console.log('volume', volume);
 
   let flowerSize = map(constrain(volume, 0, 0.15), 0, 0.15, 35, 240);
 
@@ -41,7 +43,7 @@ function drawFlower(x, y, size) {
   noStroke();
 
   // 花瓣
-  fill("#e86d8a");
+  fill('#e86d8a');
   const petalCount = 8;
 
   for (let i = 0; i < petalCount; i++) {
@@ -50,7 +52,7 @@ function drawFlower(x, y, size) {
   }
 
   // 花心
-  fill("#f4c84a");
+  fill('#f4c84a');
   circle(0, 0, size * 0.25);
 
   pop();

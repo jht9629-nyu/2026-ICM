@@ -4,16 +4,13 @@
 // Cello lines: each vertical line is one note (C major scale, C2 to C4).
 // Click and hold a line to bow it. Drag across lines to play them in turn.
 //reference from ear training by icm4.0
-//help from claude 
-
-
+//help from claude
 
 //Mary Had a Little Lamb (D Major)
 
 //• F# – E – D – E – F# – F# – F#
 //• E – E – E – F# – A – A
 //• F# – E – D – E – F# – F# – F# – F# – E – E – F# – E – D
-
 
 //Twinkle, Twinkle, Little Star (D Major)
 
@@ -24,18 +21,18 @@
 //• D – D – A – A – B – B – A
 //• G – G – F# – F# – E – E – D
 
-const NAMES = ["C", "D", "E", "F", "G", "A", "B"];
+const NAMES = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
 const STEPS = [0, 2, 4, 5, 7, 9, 11];
-const NOTE_COUNT = 15;            // C2 up to C4
-const MIN_PLAY = 600;             // ms a note rings even on a quick tap
+const NOTE_COUNT = 15; // C2 up to C4
+const MIN_PLAY = 600; // ms a note rings even on a quick tap
 
 let voices = [];
 let reverb;
-let active = -1;                  // line currently being bowed
+let active = -1; // line currently being bowed
 
 function setup() {
   createCanvas(800, 500);
-  textFont("Georgia");
+  textFont('Georgia');
 
   reverb = new p5.Reverb();
 
@@ -48,15 +45,17 @@ function setup() {
     let v = {
       name: NAMES[degree] + octave,
       freq: f,
-      x: 0, top: 0, bottom: 0,
+      x: 0,
+      top: 0,
+      bottom: 0,
       held: false,
       sounding: false,
       minUntil: 0,
-      vib: 0
+      vib: 0,
     };
 
     // cello-ish tone: sawtooth through a low-pass filter, with vibrato
-    v.osc = new p5.Oscillator(f, "sawtooth");
+    v.osc = new p5.Oscillator(f, 'sawtooth');
     v.osc.amp(0);
     v.filter = new p5.LowPass();
     v.filter.freq(min(f * 5, 2800));
@@ -64,7 +63,7 @@ function setup() {
     v.osc.disconnect();
     v.osc.connect(v.filter);
 
-    v.lfo = new p5.Oscillator(5.2, "sine");
+    v.lfo = new p5.Oscillator(5.2, 'sine');
     v.lfo.disconnect();
     v.lfo.amp(0);
     v.osc.freq(v.lfo);
@@ -134,7 +133,7 @@ function draw() {
   fill(255, 140);
   textSize(13);
   textAlign(CENTER);
-  text("Click and hold a line to bow it. Drag across the lines to play them in turn.", width / 2, 36);
+  text('2026 Click and hold a line to bow it. Drag across the lines to play them in turn.', width / 2, 36);
 }
 
 // which line (if any) is under the given point
@@ -151,13 +150,13 @@ function startNote(v) {
   v.held = true;
   v.sounding = true;
   v.minUntil = millis() + MIN_PLAY;
-  v.osc.amp(0.22, 0.12);                          // bow attack
-  v.lfo.amp(v.freq * 0.006, 0.9);                 // vibrato fades in
+  v.osc.amp(0.22, 0.12); // bow attack
+  v.lfo.amp(v.freq * 0.006, 0.9); // vibrato fades in
 }
 
 function stopNote(v) {
   v.sounding = false;
-  v.osc.amp(0, 0.5);                              // release
+  v.osc.amp(0, 0.5); // release
   v.lfo.amp(0, 0.3);
 }
 
@@ -169,7 +168,7 @@ function playLine(i) {
 }
 
 function mousePressed() {
-  userStartAudio();                               // browsers need a click first
+  userStartAudio(); // browsers need a click first
   playLine(lineAt(mouseX, mouseY));
 }
 
